@@ -57,7 +57,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/home.css' %}?v=57">
+    <link rel="stylesheet" href="{% static 'css/home.css' %}?v=60">
     <link rel="stylesheet" href="{% static 'css/site.css' %}?v=12">
 </head>
 <body class="page-home{% if request.resolver_match.url_name == 'sub_categories' %} page-category{% elif request.resolver_match.url_name == 'sub_product' %} page-catalog{% elif request.resolver_match.url_name == 'detaile_product' %} page-product{% elif request.resolver_match.url_name == 'about_detail' or request.resolver_match.url_name == 'contacts_detail' or request.resolver_match.url_name == 'payment_delivery_detail' or request.resolver_match.url_name == 'safeguards_detail' or request.resolver_match.url_name == 'return_agoods_detail' %} page-info{% elif request.resolver_match.url_name == 'profile' or request.resolver_match.url_name == 'change_password' or request.resolver_match.url_name == 'password_reset' or request.resolver_match.url_name == 'password_reset_done' or request.resolver_match.url_name == 'password_reset_confirm' or request.resolver_match.url_name == 'password_reset_complete' %} page-account{% endif %}">

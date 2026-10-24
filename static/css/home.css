@@ -1186,33 +1186,24 @@
 
 .home-explore__grid--sub {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
 .home-explore__grid--sub .home-tile {
-  grid-column: span 2;
   flex: none;
   width: auto;
   max-width: none;
   min-width: 0;
 }
 
-.home-explore__grid--sub .home-tile:last-child:nth-child(3n + 1) {
-  grid-column: span 6;
-}
-
-.home-explore__grid--sub .home-tile:nth-last-child(2):nth-child(3n + 1),
-.home-explore__grid--sub .home-tile:last-child:nth-child(3n + 2) {
-  grid-column: span 3;
-}
-
 .home-tile--sub {
   min-height: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 18px 16px;
+  padding: 16px 14px;
   border-radius: 14px;
   background: #fff;
   border: 1px solid #e4d3b8;
@@ -1227,11 +1218,14 @@
 
 .home-tile--sub .home-tile__name::after {
   content: "→";
-  display: inline-block;
-  margin-left: 0.4em;
+  display: block;
+  width: max-content;
+  margin: 8px auto 0;
   color: #8d7352;
   font-family: Manrope, sans-serif;
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1;
   transition: transform 0.2s ease;
 }
 
@@ -1259,10 +1253,14 @@
   bottom: auto;
   width: 100%;
   font-family: "Source Serif 4", Georgia, serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.3;
   text-align: center;
+  text-wrap: balance;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
   color: #1c1917;
   text-shadow: none;
 }
@@ -1447,13 +1445,24 @@
 }
 
 @media (max-width: 700px) {
+  .home-explore__grid--sub {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
   .home-tile.home-tile--sub {
     min-height: 0;
     height: auto;
+    padding: 14px 12px;
   }
 
   .home-tile--sub .home-tile__name {
-    font-size: 18px;
+    font-size: 14px;
+    line-height: 1.3;
+  }
+
+  .home-tile--sub .home-tile__name::after {
+    margin-top: 6px;
   }
 }
 
