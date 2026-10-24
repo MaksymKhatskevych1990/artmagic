@@ -17,7 +17,7 @@ export class PageProducts {
             totalPageGroups: 0,
             previousPageIndex: 0
         }
-        this.swiper = this.initSwiper();
+        this.swiper = this.initSwiper({ autoHeight: true });
         this.setupSwiperEvents();
         window.addEventListener("resize", () => {
             const prev = this.swiperPagination.buttonsPerGroup;
@@ -96,9 +96,17 @@ export class PageProducts {
             }
 
             await this.pageChange(currentPage);
+            this.updateSwiperHeight();
             this.setActivePaginationBullet(currentIndex);
             this.swiperPagination.previousPageIndex = currentIndex;
         });
+    }
+
+    updateSwiperHeight() {
+        if (!this.swiper?.updateAutoHeight) return;
+        this.swiper.updateAutoHeight(0);
+        // Recalculate after images settle so the last short page does not keep a tall wrapper.
+        requestAnimationFrame(() => this.swiper.updateAutoHeight(0));
     }
 
     renderProductItem({ name, id, image, price }, container) {
@@ -138,6 +146,7 @@ export class PageProducts {
         const images = document.querySelectorAll(`.products-${this.pageName}__item__img`);
         rerenderImage(images);
         this.basket.addEventToDetailePage(productsList);
+        this.updateSwiperHeight();
     }
 
     syncPaginationGroupSize() {
@@ -353,11 +362,13 @@ export class PageProducts {
 
         // Обновляем листы продуктов и пагинацию
         this.productsLists = this.renderProductsLists(productsAmount, productsPerPage);
+        this.swiper.update();
         const mappedProducts = this.mapProducts(products);
         this.renderProductItemsOnList(mappedProducts, 1);
         this.renderGroup10Buttons();
         this.renderPaginationBullets();
         this.setActivePaginationBullet(this.swiper.activeIndex);
+        this.updateSwiperHeight();
 
         if (this.basket.handleBasketBtnsBuyInited) {
             this.basket.initProductsBuyBtns(1);

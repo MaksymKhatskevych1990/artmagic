@@ -159,6 +159,10 @@
   color: #1c1917;
 }
 
+.page-home .login__registration {
+  height: 410px;
+}
+
 .page-home .login__modal__form,
 .page-home .registration__modal__form,
 .page-home .call__modal__form {
@@ -166,7 +170,7 @@
   align-items: stretch;
   justify-content: flex-start;
   gap: 12px;
-  padding: 4px 4px 8px;
+  padding: 4px 4px 12px;
 }
 
 .page-home .login__modal__form input,
@@ -211,12 +215,14 @@
 
 .page-catalog .main-catalog__wrap {
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
   grid-template-areas: "aside catalog";
   gap: 28px;
   align-items: start;
   width: min(1180px, calc(100% - 40px));
   margin: 8px auto 48px;
+  padding-left: 0;
+  padding-right: 0;
   overflow: visible;
 }
 
@@ -263,18 +269,19 @@
   grid-row: 1;
   width: 100% !important;
   max-width: 100%;
-  height: auto !important;
+  /* no height:!important — Swiper autoHeight sets inline height */
 }
 
 .page-catalog .products-catalog__list {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
-  width: auto !important;
+  width: 100% !important;
   max-width: 100%;
   height: auto !important;
   margin: 0;
-  padding: 8px 0 16px;
+  padding: 0 0 16px;
+  box-sizing: border-box;
 }
 
 .page-catalog .products-catalog__item {

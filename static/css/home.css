@@ -92,9 +92,17 @@
   height: auto;
 }
 
+.page-home .header-main .container__custom {
+  max-width: none;
+  padding: 0;
+}
+
 .page-home .header-main__content {
-  width: min(1180px, 100%);
-  padding: 12px 20px;
+  width: min(1180px, calc(100% - 40px));
+  margin-left: auto;
+  margin-right: auto;
+  padding: 12px 0;
+  box-sizing: border-box;
   gap: 12px 18px;
 }
 
@@ -969,11 +977,16 @@
     margin-top: 40px;
   }
 
+  .page-home .header-main .container__custom {
+    padding: 0 15px;
+  }
+
   .page-home .header-main__content {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
+    width: 100%;
     padding: 10px 16px 12px;
     gap: 10px 0;
   }

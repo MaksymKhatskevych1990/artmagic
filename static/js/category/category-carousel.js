@@ -1,5 +1,5 @@
 import { Swiper, Navigation, Pagination } from "../import.js";
-import { PageProducts } from "../classes/page-products.js?v=2";
+import { PageProducts } from "../classes/page-products.js?v=3";
 import { basket } from "../header/basket/basket.js?v=4";
 
 const pageName = "category";
@@ -14,17 +14,19 @@ class CategoryProducts extends PageProducts {
   async initializePage() {
     const { products, productsAmount, productsPerPage } = await this.fetchProducts(1);
     this.productsLists = this.renderProductsLists(productsAmount, productsPerPage);
-    
+    this.swiper.update();
+
     const mappedProducts = this.mapProducts(products);
     this.renderProductItemsOnList(mappedProducts, 1);
 
     this.renderGroup10Buttons();
     this.renderPaginationBullets();
     this.setActivePaginationBullet(this.swiper.activeIndex);
-        
+    this.updateSwiperHeight();
+
     this.basket.setPageName(this.pageName);
     this.basket.initialize();
-}
+  }
 
   async fetchProducts(page) {
     const pageUrl = window.location.href.split("/").filter(part => part !== "");
