@@ -180,9 +180,8 @@ export class PageProducts {
         const prevGroupBtn = document.querySelector(`.btn-prev-${this.pageName}-10`) ?? null;
         const nextGroupBtn = document.querySelector(`.btn-next-${this.pageName}-10`) ?? null;
 
-        const step = this.swiperPagination.buttonsPerGroup;
-        if (prevGroupBtn) prevGroupBtn.textContent = `${step} prev`;
-        if (nextGroupBtn) nextGroupBtn.textContent = `${step} next`;
+        if (prevGroupBtn) prevGroupBtn.textContent = "Назад";
+        if (nextGroupBtn) nextGroupBtn.textContent = "Вперед";
 
         if(prevGroupBtn && nextGroupBtn){
             prevGroupBtn.disabled = this.swiperPagination.currentPageGroup === 0;
@@ -204,7 +203,7 @@ export class PageProducts {
 
         const prevGroupBtn = document.createElement("button");
         prevGroupBtn.classList.add(`btn-prev-${this.pageName}-10`, "btn", "btn-primary");
-        prevGroupBtn.textContent = "10 prev";
+        prevGroupBtn.textContent = "Назад";
         prevGroupBtn.addEventListener("click", async () => {
             const step = this.swiperPagination.buttonsPerGroup;
             this.swiperPagination.currentPageGroup -= 1;
@@ -216,7 +215,7 @@ export class PageProducts {
 
         const nextGroupBtn = document.createElement("button");
         nextGroupBtn.classList.add(`btn-next-${this.pageName}-10`, "btn", "btn-primary");
-        nextGroupBtn.textContent = "10 next";
+        nextGroupBtn.textContent = "Вперед";
         nextGroupBtn.addEventListener("click", async () => {
             const step = this.swiperPagination.buttonsPerGroup;
             this.swiperPagination.currentPageGroup += 1;

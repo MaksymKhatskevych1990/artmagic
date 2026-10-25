@@ -360,8 +360,9 @@
   justify-content: center;
   height: 34px;
   margin: 0;
-  padding: 0 12px;
+  padding: 0 14px;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .page-catalog .btn-prev-catalog-10 {

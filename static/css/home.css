@@ -306,7 +306,10 @@
   top: 18px;
   left: 22px;
   display: grid;
-  gap: 0.08em;
+  grid-template-columns: max-content max-content;
+  column-gap: 0.85em;
+  row-gap: 0.12em;
+  align-items: baseline;
   margin: 0;
   font-family: "Cormorant Garamond", Georgia, serif;
   font-size: clamp(22px, 1.8vw, 28px);
@@ -317,21 +320,21 @@
 }
 
 .home-hero__hours span {
-  display: grid;
-  grid-template-columns: auto auto;
-  column-gap: 0.7em;
-  align-items: baseline;
+  display: contents;
 }
 
 .home-hero__hours i {
   font-style: italic;
   font-weight: 500;
+  text-align: right;
   color: #6a5340;
 }
 
 .home-hero__hours b {
   font-weight: 600;
   font-style: normal;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
 }
 
 .home-hero__photo {
@@ -1178,8 +1181,8 @@
   }
 
   .home-tile.home-tile--sub {
-    min-height: 0;
-    height: auto;
+    min-height: 148px;
+    height: 100%;
   }
 
 }
@@ -1198,7 +1201,8 @@
 }
 
 .home-tile--sub {
-  min-height: 0;
+  min-height: 118px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1451,8 +1455,8 @@
   }
 
   .home-tile.home-tile--sub {
-    min-height: 0;
-    height: auto;
+    min-height: 148px;
+    height: 100%;
     padding: 14px 12px;
   }
 
@@ -1505,9 +1509,10 @@
   justify-content: center;
   height: 34px;
   margin: 0;
-  padding: 0 10px;
+  padding: 0 14px;
   line-height: 1;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .page-category .btn-prev-category-10 {
