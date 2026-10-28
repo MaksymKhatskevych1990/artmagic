@@ -238,20 +238,20 @@ class Form {
     async fetchNewPostAPIData(pathName, query = ""){
         this.showModalLoader();
         const path = `api/${pathName}`
-        const data = await fetch(`${PROTOCOL}://${HOST}:${PORT}/delivery/${path}?${query}`, 
-            {
-                method: "GET",
-                mode: "cors",
-                headers: {
-                    "Accept": "application/json"
+        try {
+            const response = await fetch(`${PROTOCOL}://${HOST}:${PORT}/delivery/${path}?${query}`,
+                {
+                    method: "GET",
+                    mode: "cors",
+                    headers: {
+                        "Accept": "application/json"
+                    }
                 }
-            }
-        )
-            .then((data) => {
-                this.hideModalLoader();
-                return data.json()
-            })
-        return data;
+            );
+            return await response.json();
+        } finally {
+            this.hideModalLoader();
+        }
     }
 
     orderInputWrap(fieldName){
@@ -262,7 +262,15 @@ class Form {
         triggerInputWrap.addEventListener("change", async () => {
             if(triggerInputWrap.value != "null"){
                 const nullElement = containerInputWrap.querySelector("option");
-                let data = (await this.fetchNewPostAPIData(url, `${queryKey}=${triggerInputWrap.value}`))[dataKey];
+                let data;
+                try {
+                    const payload = await this.fetchNewPostAPIData(url, `${queryKey}=${triggerInputWrap.value}`);
+                    data = payload?.[dataKey];
+                } catch (error) {
+                    console.error(error);
+                    return;
+                }
+                if (!Array.isArray(data)) return;
 
                 const filterDepartment = (dataArr, key) => filtrationFunc(dataArr, key, value => value.startsWith("Відділення"));
                 const filterPayment = (dataArr, key) => filtrationFunc(dataArr, key, value => !value.startsWith("Відділення"));

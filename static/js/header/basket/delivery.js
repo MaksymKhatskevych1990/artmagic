@@ -206,102 +206,172 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    const departmentSelect = document.querySelector('[data-field="department"]');
-    const departmentQuery = document.querySelector(".department-picker__query");
-    const departmentList = document.querySelector(".department-picker__list");
-    let departmentActiveIndex = -1;
+    const optionPickers = [];
 
-    const closeDepartmentList = () => {
-        departmentList.hidden = true;
-        departmentList.innerHTML = "";
-        departmentActiveIndex = -1;
+    const bindOptionPicker = (select, { emptyText, maxResults = 30 }) => {
+        const root = select.closest(".option-picker");
+        const query = root.querySelector(".option-picker__query");
+        const list = root.querySelector(".option-picker__list");
+        let activeIndex = -1;
+
+        const selectableOptions = () => [...select.options].filter((option) => option.value && option.value !== "null");
+
+        const closeList = () => {
+            list.hidden = true;
+            list.innerHTML = "";
+            activeIndex = -1;
+        };
+
+        const placeList = () => {
+            const rect = query.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom - 12;
+            const spaceAbove = rect.top - 12;
+            const openUp = spaceBelow < 160 && spaceAbove > spaceBelow;
+            const maxHeight = Math.max(120, Math.min(220, openUp ? spaceAbove : spaceBelow));
+            list.style.left = `${rect.left}px`;
+            list.style.width = `${rect.width}px`;
+            list.style.maxHeight = `${maxHeight}px`;
+            if (openUp) {
+                list.style.top = "auto";
+                list.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+            } else {
+                list.style.bottom = "auto";
+                list.style.top = `${rect.bottom + 4}px`;
+            }
+        };
+
+        const choose = (option) => {
+            select.value = option.value;
+            query.value = option.textContent.trim();
+            select.dispatchEvent(new Event("input", { bubbles: true }));
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+            closeList();
+        };
+
+        const render = (filterText) => {
+            const needle = filterText.trim().toLowerCase();
+            optionPickers.forEach((picker) => {
+                if (picker.list !== list) picker.closeList();
+            });
+            list.innerHTML = "";
+            activeIndex = -1;
+            if (list.parentElement !== document.body) document.body.appendChild(list);
+            list.hidden = false;
+            placeList();
+
+            const available = selectableOptions();
+            if (!available.length) {
+                list.innerHTML = `<li class="option-picker__empty">${emptyText}</li>`;
+                return;
+            }
+
+            const ranked = available
+                .map((option) => {
+                    const text = option.textContent.toLowerCase();
+                    return { option, index: needle ? text.indexOf(needle) : 0, starts: Boolean(needle) && text.startsWith(needle) };
+                })
+                .filter((item) => item.index >= 0);
+            if (needle) {
+                ranked.sort((a, b) => Number(b.starts) - Number(a.starts) || a.index - b.index);
+            }
+            const matches = ranked.slice(0, maxResults).map((item) => item.option);
+            if (!matches.length) {
+                list.innerHTML = `<li class="option-picker__empty">Нічого не знайдено</li>`;
+                return;
+            }
+
+            matches.forEach((option) => {
+                const item = document.createElement("li");
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "option-picker__option";
+                button.textContent = option.textContent.trim();
+                button.addEventListener("mousedown", (event) => event.preventDefault());
+                button.addEventListener("click", () => choose(option));
+                item.appendChild(button);
+                list.appendChild(item);
+            });
+        };
+
+        query.addEventListener("focus", () => render(""));
+        query.addEventListener("click", () => render(""));
+        query.addEventListener("input", () => {
+            const selected = select.selectedOptions[0];
+            if (select.value && select.value !== "null" && query.value.trim() !== selected?.textContent.trim()) {
+                select.value = "null";
+                select.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            render(query.value);
+        });
+        query.addEventListener("keydown", (event) => {
+            const buttons = [...list.querySelectorAll(".option-picker__option")];
+            if (event.key === "Escape") {
+                closeList();
+                return;
+            }
+            if (!buttons.length || !["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) return;
+            event.preventDefault();
+            if (event.key === "ArrowDown") activeIndex = Math.min(activeIndex + 1, buttons.length - 1);
+            if (event.key === "ArrowUp") activeIndex = Math.max(activeIndex - 1, 0);
+            if (event.key === "Enter") {
+                (buttons[activeIndex] || buttons[0]).click();
+                return;
+            }
+            buttons.forEach((button, index) => button.classList.toggle("is-active", index === activeIndex));
+            buttons[activeIndex]?.scrollIntoView({ block: "nearest" });
+        });
+
+        new MutationObserver(() => {
+            query.value = "";
+            closeList();
+        }).observe(select, { childList: true });
+
+        const picker = {
+            root,
+            query,
+            list,
+            closeList,
+            placeList,
+            clear() { query.value = ""; closeList(); },
+        };
+        optionPickers.push(picker);
+        return picker;
     };
+
+    const areaPicker = bindOptionPicker(document.querySelector('[data-field="area"]'), {
+        emptyText: "Області ще завантажуються",
+    });
+    const cityPicker = bindOptionPicker(document.querySelector('[data-field="city"]'), {
+        emptyText: "Спочатку оберіть область",
+    });
+    const departmentPicker = bindOptionPicker(document.querySelector('[data-field="department"]'), {
+        emptyText: "Спочатку оберіть місто",
+    });
+    const departmentQuery = departmentPicker.query;
 
     const clearDepartmentQuery = () => {
-        departmentQuery.value = "";
-        closeDepartmentList();
+        areaPicker.clear();
+        cityPicker.clear();
+        departmentPicker.clear();
     };
-
-    const departmentOptions = () => [...departmentSelect.options].filter((option) => option.value && option.value !== "null");
-
-    const chooseDepartment = (option) => {
-        departmentSelect.value = option.value;
-        departmentQuery.value = option.textContent;
-        departmentSelect.dispatchEvent(new Event("input", { bubbles: true }));
-        departmentSelect.dispatchEvent(new Event("change", { bubbles: true }));
-        closeDepartmentList();
-    };
-
-    const renderDepartmentMatches = () => {
-        const query = departmentQuery.value.trim().toLowerCase();
-        departmentList.innerHTML = "";
-        departmentActiveIndex = -1;
-        if (!query) {
-            closeDepartmentList();
-            return;
-        }
-
-        const options = departmentOptions();
-        departmentList.hidden = false;
-        if (!options.length) {
-            departmentList.innerHTML = `<li class="department-picker__empty">Спочатку оберіть місто</li>`;
-            return;
-        }
-
-        const matches = options.filter((option) => option.textContent.toLowerCase().includes(query)).slice(0, 12);
-        if (!matches.length) {
-            departmentList.innerHTML = `<li class="department-picker__empty">Нічого не знайдено</li>`;
-            return;
-        }
-
-        matches.forEach((option) => {
-            const item = document.createElement("li");
-            const button = document.createElement("button");
-            button.type = "button";
-            button.className = "department-picker__option";
-            button.textContent = option.textContent;
-            button.addEventListener("mousedown", (event) => event.preventDefault());
-            button.addEventListener("click", () => chooseDepartment(option));
-            item.appendChild(button);
-            departmentList.appendChild(item);
-        });
-        document.querySelector(".basket__modal__swiper")?.swiper?.update();
-    };
-
-    departmentQuery.addEventListener("input", () => {
-        const selected = departmentSelect.selectedOptions[0];
-        if (departmentSelect.value && departmentSelect.value !== "null" && departmentQuery.value !== selected?.textContent) {
-            departmentSelect.value = "null";
-            departmentSelect.dispatchEvent(new Event("input", { bubbles: true }));
-        }
-        renderDepartmentMatches();
-    });
-
-    departmentQuery.addEventListener("keydown", (event) => {
-        const buttons = [...departmentList.querySelectorAll(".department-picker__option")];
-        if (event.key === "Escape") {
-            closeDepartmentList();
-            return;
-        }
-        if (!buttons.length || !["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) return;
-        event.preventDefault();
-        if (event.key === "ArrowDown") departmentActiveIndex = Math.min(departmentActiveIndex + 1, buttons.length - 1);
-        if (event.key === "ArrowUp") departmentActiveIndex = Math.max(departmentActiveIndex - 1, 0);
-        if (event.key === "Enter") {
-            (buttons[departmentActiveIndex] || buttons[0]).click();
-            return;
-        }
-        buttons.forEach((button, index) => button.classList.toggle("is-active", index === departmentActiveIndex));
-        buttons[departmentActiveIndex]?.scrollIntoView({ block: "nearest" });
-    });
 
     document.addEventListener("click", (event) => {
-        if (!event.target.closest(".department-picker")) closeDepartmentList();
+        optionPickers.forEach((picker) => {
+            const insideField = event.target.closest(".option-picker") === picker.root;
+            const insideList = picker.list.contains(event.target);
+            if (!insideField && !insideList) picker.closeList();
+        });
     });
 
-    new MutationObserver(() => {
-        clearDepartmentQuery();
-    }).observe(departmentSelect, { childList: true });
+    document.querySelector(".basket__modal__body")?.addEventListener("scroll", () => {
+        optionPickers.forEach((picker) => {
+            if (!picker.list.hidden) picker.placeList();
+        });
+    }, true);
+
+    document.getElementById("basket__modal")?.addEventListener("hidden.bs.modal", () => {
+        optionPickers.forEach((picker) => picker.closeList());
+    });
 
     const updateFormFields = () => {
         const fieldsToShow = [];

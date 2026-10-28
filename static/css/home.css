@@ -1892,22 +1892,17 @@
   padding: 10px 14px;
 }
 
-.department-picker__query,
-.department-picker__list {
-  display: none;
-}
-
-.page-home #basket__modal .department-picker {
+.page-home #basket__modal .option-picker {
   position: relative;
   width: min(100%, 420px);
 }
 
-.page-home #basket__modal .department-picker .order__input {
+.page-home #basket__modal .option-picker .order__input {
   width: 100%;
   margin: 0;
 }
 
-.page-home #basket__modal .department-picker__native {
+.page-home #basket__modal .option-picker__native {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1917,24 +1912,26 @@
   pointer-events: none;
 }
 
-.page-home #basket__modal .department-picker__query {
+.page-home #basket__modal .option-picker__query {
   display: block;
+  margin: 10px 0;
 }
 
-.page-home #basket__modal .department-picker__list:not([hidden]) {
+.option-picker__list:not([hidden]) {
   display: block;
-  width: 100%;
-  max-height: 180px;
-  margin: 6px 0 0;
+  position: fixed;
+  z-index: 2000;
+  margin: 0;
   padding: 6px;
   overflow: auto;
   list-style: none;
   border: 1px solid #e4d9c8;
   border-radius: 12px;
   background: #fff;
+  box-shadow: 0 12px 30px rgba(28, 25, 23, 0.12);
 }
 
-.page-home #basket__modal .department-picker__option {
+.option-picker__option {
   width: 100%;
   border: 0;
   border-radius: 8px;
@@ -1947,12 +1944,12 @@
   cursor: pointer;
 }
 
-.page-home #basket__modal .department-picker__option:hover,
-.page-home #basket__modal .department-picker__option.is-active {
+.option-picker__option:hover,
+.option-picker__option.is-active {
   background: #f7f3ec;
 }
 
-.page-home #basket__modal .department-picker__empty {
+.option-picker__empty {
   padding: 8px 10px;
   color: #8a8175;
   font-size: 13px;

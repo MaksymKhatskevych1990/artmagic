@@ -193,39 +193,55 @@
                                         />
                                         <p data-error="address" class="error-message-hidden"></p>
                                     </div>
-                                    <div class="order__input__wrap">
-                                        <select class="order__input" 
+                                    <div class="order__input__wrap option-picker">
+                                        <select class="order__input option-picker__native"
                                         data-field="area"
-                                        type="text"
+                                        tabindex="-1"
+                                        aria-hidden="true"
                                         >
                                             <option value="null">-- Оберіть Область --</option>
                                         </select>
+                                        <input class="order__input option-picker__query"
+                                        type="search"
+                                        placeholder="Область"
+                                        autocomplete="off"
+                                        aria-label="Область"
+                                        >
+                                        <ul class="option-picker__list" hidden></ul>
                                         <p data-error="area" class="error-message-hidden"></p>
                                     </div>
-                                    <div class="order__input__wrap">
-                                        <select class="order__input" 
+                                    <div class="order__input__wrap option-picker">
+                                        <select class="order__input option-picker__native"
                                         data-field="city"
-                                        type="text"
+                                        tabindex="-1"
+                                        aria-hidden="true"
                                         >
                                             <option value="null">-- Оберіть Місто --</option>
                                         </select>
+                                        <input class="order__input option-picker__query"
+                                        type="search"
+                                        placeholder="Місто"
+                                        autocomplete="off"
+                                        aria-label="Місто"
+                                        >
+                                        <ul class="option-picker__list" hidden></ul>
                                         <p data-error="city" class="error-message-hidden"></p>
                                     </div>
-                                    <div class="order__input__wrap department-picker">
-                                        <select class="order__input department-picker__native"
+                                    <div class="order__input__wrap option-picker">
+                                        <select class="order__input option-picker__native"
                                         data-field="department"
                                         tabindex="-1"
                                         aria-hidden="true"
                                         >
                                             <option value="null">-- Оберіть Відділення --</option>
                                         </select>
-                                        <input class="order__input department-picker__query"
+                                        <input class="order__input option-picker__query"
                                         type="search"
                                         placeholder="Номер або адреса відділення"
                                         autocomplete="off"
                                         aria-label="Пошук відділення або поштомата"
                                         >
-                                        <ul class="department-picker__list" hidden></ul>
+                                        <ul class="option-picker__list" hidden></ul>
                                         <p data-error="department" class="error-message-hidden"></p>
                                     </div>
                                 </div>
