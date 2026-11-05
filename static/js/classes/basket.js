@@ -1,3 +1,16 @@
+function notifyStock(text) {
+    const label = document.querySelector("div#errorMessage");
+    if (!label) {
+        return;
+    }
+    const textNode = label.querySelector("div.alert-text");
+    if (textNode) {
+        textNode.textContent = text;
+    }
+    label.classList.add("alert_anim");
+    setTimeout(() => label.classList.remove("alert_anim"), 5000);
+}
+
 export class Basket {
     constructor(productManager) {
         this.productManager = productManager;
@@ -18,6 +31,38 @@ export class Basket {
         })
         this.rerenderBasketCalled = false;
         this.handleBasketBtnsBuyInited = false;
+        const basketModal = document.getElementById("basket__modal");
+        if (basketModal) {
+            basketModal.addEventListener("shown.bs.modal", () => {
+                this.refreshStockFromServer();
+            });
+        }
+    }
+
+    async refreshStockFromServer() {
+        if (!this.productManager.getProducts().length) {
+            return;
+        }
+        try {
+            const quote = await this.productManager.refreshStock();
+            this.renderBasket();
+            const checkoutButton = document.querySelector('button[data-submit="btn_Order"]');
+            if (checkoutButton && checkoutButton.dataset.stockBlocked === "1") {
+                checkoutButton.disabled = false;
+                delete checkoutButton.dataset.stockBlocked;
+            }
+            if (quote.changed) {
+                notifyStock("Ціна або наявність товарів у кошику змінилась. Перевірте кількість перед замовленням.");
+            }
+        } catch (error) {
+            this.productManager.stockReady = false;
+            const checkoutButton = document.querySelector('button[data-submit="btn_Order"]');
+            if (checkoutButton) {
+                checkoutButton.disabled = true;
+                checkoutButton.dataset.stockBlocked = "1";
+            }
+            notifyStock(error.message || "Не вдалося перевірити наявність товарів. Спробуйте ще раз.");
+        }
     }
 
     initialize() {

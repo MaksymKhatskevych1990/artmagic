@@ -1,0 +1,16 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Повторно надіслати лист?</h1>
+<p>Лист піде клієнту і на пошту магазину. Замовлень: {{ orders|length }}.</p>
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="resend_order_email">
+    <input type="hidden" name="confirm_resend" value="yes">
+    <input type="hidden" name="post" value="yes">
+    {% for order in orders %}
+        <input type="hidden" name="{{ action_checkbox_name }}" value="{{ order.pk }}">
+    {% endfor %}
+    <button type="submit" class="button">Надіслати</button>
+    <a href=".">Скасувати</a>
+</form>
+{% endblock %}

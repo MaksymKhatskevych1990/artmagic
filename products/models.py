@@ -287,6 +287,28 @@ class ProductFilter(models.Model):
         verbose_name_plural = "Фільтри продукту"
 
 
+class SyncRun(models.Model):
+    STATUS_SUCCESS = "success"
+    STATUS_PARTIAL = "completed_with_errors"
+    STATUS_FAILED = "failed"
+
+    sync_id = models.UUIDField(unique=True)
+    started_at = models.DateTimeField()
+    finished_at = models.DateTimeField(null=True, blank=True)
+    success_count = models.PositiveIntegerField(default=0)
+    error_count = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=32, default=STATUS_FAILED)
+    message = models.TextField(blank=True, default="")
+
+    class Meta:
+        verbose_name = "Синхронізація 1С"
+        verbose_name_plural = "Синхронізації 1С"
+        ordering = ["-started_at"]
+
+    def __str__(self):
+        return f"{self.sync_id} {self.status} {self.success_count}/{self.error_count}"
+
+
 class ProductImage(models.Model):
     product = models.ForeignKey('Products', on_delete=models.CASCADE, verbose_name="Продукт")
     image = models.ImageField(upload_to='catalog/', null=True, max_length=300, blank=True, verbose_name="Зображення продукту")

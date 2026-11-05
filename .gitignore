@@ -8,3 +8,4 @@ venv
 __pycache__/
 *.pyc
 **settings.py
+tasks.md

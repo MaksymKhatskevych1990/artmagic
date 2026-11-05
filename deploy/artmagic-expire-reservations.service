@@ -1,0 +1,10 @@
+[Unit]
+Description=Expire unpaid ArtMagic stock reservations
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/artmagic_project/artmagic_full_project
+ExecStart=/var/artmagic_project/artmagic_full_project/venv/bin/python manage.py expire_stock_reservations
+User=www-data
+Group=www-data

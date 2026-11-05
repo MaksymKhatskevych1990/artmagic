@@ -1,5 +1,7 @@
 import re  # Обновлено
 import json
+import uuid
+from decimal import Decimal, InvalidOperation
 from django.shortcuts import render, get_object_or_404
 from django.core.paginator import Paginator
 from django.http import JsonResponse
@@ -10,6 +12,7 @@ from rest_framework.response import Response
 from unidecode import unidecode    
 from django.utils.text import slugify
 from django.utils.html import strip_tags
+from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import PermissionDenied
 
@@ -24,10 +27,13 @@ from .models import (Products,
                      FilterCategory,  # Обновлено
                      FilterValue,
                      ProductImage,
-                     Stocks)  # Обновлено
+                     Stocks,
+                     SyncRun)  # Обновлено
 from main.models import Carousel, ContactInfo, Informations
 from django.conf import settings
 from .filters import build_facet_options, filter_products
+from .sync import record_sync_run
+from carts.stock import reconcile_pending_reservations
 from .utils import alphanumeric_sort, get_sorted_product_attributes
 
 
@@ -425,6 +431,10 @@ def upsert_product(request):
     if not onec_api_key or onec_api_key != settings.ONEC_API_KEY:
         raise PermissionDenied('Invalid 1C API key')
 
+    sync_id = uuid.uuid4()
+    started_at = timezone.now()
+    success_count = 0
+    error_count = 0
     try:
         # Получаем сырые данные
         byte_string = request.body
@@ -512,7 +522,8 @@ def upsert_product(request):
                     raise
 
         except UnicodeDecodeError as e:
-            logger.error(f"Unicode decode error: {str(e)}")
+            logger.error("sync_products_decode_failed sync_id=%s", sync_id)
+            record_sync_run(sync_id, started_at, SyncRun.STATUS_FAILED, 0, 1, "decode")
             return Response({
                 'status': 'error',
                 'message': 'Unable to decode data',
@@ -524,13 +535,14 @@ def upsert_product(request):
             data = [data]
 
         responses = []
-        success_count = 0
-        error_count = 0
+        success_ids = []
 
         for product_data in data:
+            model = ""
             try:
-                if not product_data.get('model'):
+                if not isinstance(product_data, dict) or not product_data.get('model'):
                     error_count += 1
+                    logger.error("sync_products_row sync_id=%s model=%s reason=model_required", sync_id, "")
                     responses.append({
                         'status': 'error',
                         'message': 'Model is required',
@@ -541,18 +553,24 @@ def upsert_product(request):
                 model = product_data.get('model')
                 name = product_data.get('name', '').strip()
 
-                # Безопасное преобразование числовых значений
                 try:
-                    price = float(product_data.get('price', 0))
-                except (ValueError, TypeError):
-                    price = 0
-                    logger.warning(f"Invalid price for model {model}")
-
-                try:
-                    quantity = float(product_data.get('quantity', 0))
-                except (ValueError, TypeError):
-                    quantity = 0
-                    logger.warning(f"Invalid quantity for model {model}")
+                    price = Decimal(str(product_data.get('price', 0)))
+                    quantity_value = Decimal(
+                        str(product_data.get('quantity', 0))
+                    )
+                except (InvalidOperation, ValueError, TypeError) as exc:
+                    raise ValueError("Invalid numeric value") from exc
+                if not price.is_finite() or price < 0:
+                    raise ValueError("Price must be a non-negative number")
+                if (
+                    not quantity_value.is_finite()
+                    or quantity_value < 0
+                    or quantity_value != quantity_value.to_integral_value()
+                ):
+                    raise ValueError(
+                        "Quantity must be a non-negative integer"
+                    )
+                quantity = int(quantity_value)
 
                 product, created = Products.objects.update_or_create(
                     model=model,
@@ -565,6 +583,7 @@ def upsert_product(request):
                 )
 
                 success_count += 1
+                success_ids.append(product.id)
                 responses.append({
                     'status': 'success',
                     'message': f'Product {model} was {"created" if created else "updated"}',
@@ -573,7 +592,7 @@ def upsert_product(request):
 
             except Exception as e:
                 error_count += 1
-                logger.error(f"Error processing product {model}: {str(e)}")
+                logger.error("sync_products_row sync_id=%s model=%s reason=%s", sync_id, model, e)
                 responses.append({
                     'status': 'error',
                     'message': 'Error processing product',
@@ -581,18 +600,48 @@ def upsert_product(request):
                     'data': product_data
                 })
 
+        if success_ids:
+            try:
+                reconcile_pending_reservations(success_ids, started_at)
+            except Exception as exc:
+                logger.exception("sync_reconcile_failed sync_id=%s", sync_id)
+                error_count += 1
+                responses.append({
+                    'status': 'error',
+                    'message': 'Reservation reconciliation failed',
+                    'error': str(exc),
+                })
+        if error_count and success_count:
+            sync_status = SyncRun.STATUS_PARTIAL
+            http_status = 207
+        elif error_count:
+            sync_status = SyncRun.STATUS_FAILED
+            http_status = status.HTTP_400_BAD_REQUEST
+        else:
+            sync_status = SyncRun.STATUS_SUCCESS
+            http_status = status.HTTP_200_OK
+        record_sync_run(sync_id, started_at, sync_status, success_count, error_count)
+        logger.info(
+            "sync_products sync_id=%s status=%s success=%s failed=%s",
+            sync_id,
+            sync_status,
+            success_count,
+            error_count,
+        )
         return Response({
-            'status': 'completed',
+            'status': sync_status,
+            'sync_id': str(sync_id),
             'summary': {
                 'total': len(responses),
                 'successful': success_count,
                 'failed': error_count
             },
             'details': responses
-        })
+        }, status=http_status)
 
     except json.JSONDecodeError as e:
-        logger.error(f"JSON decode error: {str(e)}")
+        logger.error("sync_products_json_failed sync_id=%s", sync_id)
+        record_sync_run(sync_id, started_at, SyncRun.STATUS_FAILED, success_count, error_count or 1, "json")
         # Возвращаем больше информации для отладки
         return Response({
             'status': 'error',
@@ -607,7 +656,8 @@ def upsert_product(request):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+        logger.exception("sync_products_failed sync_id=%s", sync_id)
+        record_sync_run(sync_id, started_at, SyncRun.STATUS_FAILED, success_count, error_count or 1, "unexpected")
         return Response({
             'status': 'error',
             'message': 'Unexpected error during processing',

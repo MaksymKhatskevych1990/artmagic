@@ -1,0 +1,8 @@
+{% extends "admin/change_list.html" %}
+{% block content_title %}
+<h1>Синхронізації 1С</h1>
+<p>Остання успішна синхронізація: {% if last_success %}{{ last_success }}{% else %}ще не було{% endif %}</p>
+{% if sync_stale %}
+<p>Синхронізації не було довше допустимого періоду.</p>
+{% endif %}
+{% endblock %}

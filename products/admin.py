@@ -2,7 +2,8 @@ from django.contrib import admin
 from mptt.admin import MPTTModelAdmin
 from django.utils.safestring import mark_safe
 
-from .models import Products, Category, ProductFilter, FilterCategory, FilterValue, Manufacturer, ProductImage, ProductToCategory, FilterGroup, Stocks
+from .models import Products, Category, ProductFilter, FilterCategory, FilterValue, Manufacturer, ProductImage, ProductToCategory, FilterGroup, Stocks, SyncRun
+from .sync import is_sync_stale
 from .forms import ProductFilterForm, ProductToCategoryForm, CategoryAdminForm
 
 
@@ -179,3 +180,20 @@ class FilterValueAdmin(admin.ModelAdmin):
 admin.site.register(Manufacturer, HiddenModelAdmin)
 admin.site.register(Stocks)
 admin.site.register(ProductFilter, HiddenModelAdmin)
+
+
+@admin.register(SyncRun)
+class SyncRunAdmin(admin.ModelAdmin):
+    change_list_template = "admin/products/syncrun/change_list.html"
+    list_display = ("started_at", "finished_at", "status", "success_count", "error_count", "sync_id")
+    readonly_fields = ("sync_id", "started_at", "finished_at", "status", "success_count", "error_count", "message")
+
+    def has_add_permission(self, request):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        last = SyncRun.objects.filter(status=SyncRun.STATUS_SUCCESS).order_by("-finished_at").first()
+        extra_context["last_success"] = last.finished_at if last else None
+        extra_context["sync_stale"] = is_sync_stale()
+        return super().changelist_view(request, extra_context=extra_context)

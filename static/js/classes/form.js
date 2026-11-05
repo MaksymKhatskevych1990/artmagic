@@ -1,3 +1,23 @@
+function createCheckoutRequestId() {
+    if (window.crypto && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+    }
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+        const random = Math.random() * 16 | 0;
+        const value = char === "x" ? random : (random & 0x3 | 0x8);
+        return value.toString(16);
+    });
+}
+
+function escapeCheckoutHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
 class Form {
     constructor(obj, patterns, formName, alertCl, ...args) {
         this.formData = Object.fromEntries(
@@ -116,85 +136,146 @@ class Form {
 
         this.dataSubmitBtn.addEventListener("click", async (e) => {
             e.preventDefault();
+            if (this.checkoutInFlight) {
+                return;
+            }
+            this.checkoutInFlight = true;
+            const buttonLabel = this.dataSubmitBtn.textContent;
+            this.dataSubmitBtn.disabled = true;
+            this.dataSubmitBtn.textContent = "Обробка...";
             this.showModalLoader();
-        
-            let emptyForm = false;
-            Object.keys(this.formData).forEach(key => this.triggerInput(key));
-        
-            const submitedFormData = { ...this.mapedFormData(obj), ...this.selectedBasketObj };
-            submitedFormData.amount = this.productManager.allProductsTotalPrice(this.productManager.priceOutputFn, 2);
-        
-            if (this.productManager !== null) 
-                submitedFormData.products = this.productManager.filterProductsByQuantity(this.productManager.getProducts());
-        
-            const productsExistCondition = submitedFormData.products && submitedFormData.products.length === 0;
-        
 
+            let succeeded = false;
+            let liqpayWindow = null;
             try {
-                if (productsExistCondition || submitedFormData.products.length === 0) 
-                    throw new Error("Відсутні продукти у кошику.");
-
-                // Создание заказа после всех проверок и подтверждений
-                if (this.selectedBasketObj.selectedPayment == "liqpay") {
-                    this.formData.description = `
-                        ФОП Чикольба Т.Ю.
-                        Час замовлення: ${this.getCurrentDateTime()}
-                        Продукти: 
-                        ${this.productManager.getProductsInfo()}
-                    `;
-        
-                    const body = this.formData;
-                    body.amount = this.productManager.allProductsTotalPrice(this.productManager.priceOutputFn, 2);
-                    body.products = this.productManager.filterProductsByQuantity(this.productManager.getProducts());
-                    body.selectedDelivery = this.selectedBasketObj.selectedDelivery;
-                    body.selectedPayment = this.selectedBasketObj.selectedPayment;
-
-                    try {
-                        const { formHtml, orderNumber } = await this.fetchData(`payment/create/`, "POST", body);
-
-                        submitedFormData.orderNumber = orderNumber;
-                        const liqpayFormContainer = document.getElementById('liqpayForm');
-                        liqpayFormContainer.innerHTML = formHtml;
-                        liqpayFormContainer.querySelector('form').addEventListener("submit", (e) => {
-                            e.preventDefault();
-                        });
-                        setTimeout(() => liqpayFormContainer.querySelector('form').submit(), 1000);
-                        
-                    } catch (err) {
-                        console.log(err);
-                        this.alert("err", "Неможливо зробити замовлення без обраного товару", animDuration);
+                let invalid = false;
+                Object.keys(this.formData).forEach((key) => {
+                    if (this.triggerInput(key)) {
+                        invalid = true;
                     }
+                });
+                if (invalid) {
+                    throw new Error("Будь ласка заповніть поля форми");
+                }
+                if (!this.selectedBasketObj.selectedDelivery || !this.selectedBasketObj.selectedPayment) {
+                    throw new Error("Оберіть спосіб доставки та оплати");
+                }
+                if (!this.productManager) {
+                    throw new Error("Відсутні продукти у кошику.");
+                }
+                if (this.selectedBasketObj.selectedPayment === "liqpay") {
+                    const windowName = `artmagic_liqpay_${Date.now()}`;
+                    liqpayWindow = window.open("about:blank", windowName);
+                    if (!liqpayWindow) {
+                        throw new Error("Дозвольте спливаючі вікна для переходу до LiqPay.");
+                    }
+                    liqpayWindow.document.title = "ArtMagic — LiqPay";
+                    liqpayWindow.document.body.textContent = "Підготовка сторінки оплати…";
                 }
 
-                const { orderNumber } = await this.fetchData(path, methodType, submitedFormData);
-                if (this.showSuccessModal && this.selectedBasketObj.selectedPayment !== "liqpay") {
-                    this.showSuccessModal("Успіх! Замовлення прийнято",
-                        `<p class="text-center">Супер, Ваше замовлення №${orderNumber} прийнято<br><br>Наш менеджер зв'яжеться із вами найближчим часом</p>`
-                    );
+                const quote = await this.productManager.refreshStock();
+                this.basket.renderBasket();
+                if (!this.productManager.getProducts().length) {
+                    throw new Error("Деякі товари недоступні або кошик порожній.");
                 }
-                this.hideHoleModals();
+                const confirmationQuote = quote.changed
+                    ? quote
+                    : this.productManager.unconfirmedQuote;
+                if (this.productManager.stockConfirmationRequired && confirmationQuote) {
+                    const confirmed = await this.askStockConfirmation(confirmationQuote);
+                    if (!confirmed) {
+                        this.checkoutRequestId = null;
+                        this.checkoutCartKey = null;
+                        throw new Error("Оформлення скасовано. Перевірте кошик.");
+                    }
+                    this.productManager.confirmStockQuote();
+                }
+
+                const requestId = this.ensureCheckoutRequestId();
+                const payload = {
+                    ...this.mapedFormData(obj),
+                    ...this.selectedBasketObj,
+                    products: this.productManager.filterProductsByQuantity(this.productManager.getProducts()),
+                    client_request_id: requestId,
+                    confirmed_fingerprint: this.productManager.lastFingerprint,
+                };
+                if (!payload.products.length) {
+                    throw new Error("Відсутні продукти у кошику.");
+                }
+
+                let result = null;
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    result = await this.postCheckout(payload);
+                    if (result.status !== "stock_changed") {
+                        break;
+                    }
+                    this.productManager.applyRefresh(result.cart);
+                    this.productManager.lastFingerprint = result.cart.fingerprint;
+                    this.productManager.stockConfirmationRequired = true;
+                    this.productManager.unconfirmedQuote = result.cart;
+                    this.basket.renderBasket();
+                    const confirmed = await this.askStockConfirmation(result.cart);
+                    if (!confirmed) {
+                        this.checkoutRequestId = null;
+                        this.checkoutCartKey = null;
+                        throw new Error("Оформлення скасовано. Перевірте кошик.");
+                    }
+                    this.productManager.confirmStockQuote();
+                    payload.products = this.productManager.filterProductsByQuantity(this.productManager.getProducts());
+                    payload.confirmed_fingerprint = result.cart.fingerprint;
+                }
+                if (!result || result.status !== "success" || !result.orderNumber) {
+                    throw new Error((result && result.message) || "Не вдалося оформити замовлення");
+                }
+
+                if (result.formHtml) {
+                    const liqpayFormContainer = document.getElementById("liqpayForm");
+                    liqpayFormContainer.innerHTML = result.formHtml;
+                    const paymentForm = liqpayFormContainer.querySelector("form");
+                    if (!paymentForm || !liqpayWindow || liqpayWindow.closed) {
+                        throw new Error("Не вдалося відкрити LiqPay. Повторіть спробу з тим самим замовленням.");
+                    }
+                    paymentForm.target = liqpayWindow.name;
+                    paymentForm.submit();
+                } else if (liqpayWindow && !liqpayWindow.closed) {
+                    liqpayWindow.close();
+                }
+                succeeded = true;
+                this.checkoutRequestId = null;
+                this.checkoutCartKey = null;
                 this.hideModalLoader();
                 if (clearCond) {
                     this.clearForm(this.initObj);
                     const selectors = document.querySelectorAll("select");
                     selectors.forEach((el) => el.value = null);
                     this.userAuthDefaultData();
-
-                    if (this.productManager !== null) {
-                        this.productManager.clearStorageProducts();
-                        this.productManager.clearProducts();
-                        this.basket.renderBasket();
-                    }
+                    this.productManager.clearStorageProducts();
+                    this.productManager.clearProducts();
+                    this.productManager.stockReady = false;
+                    this.basket.renderBasket();
                 }
-
-
+                this.hideHoleModals();
+                if (this.showSuccessModal) {
+                    const paymentNote = result.formHtml
+                        ? "<br>Завершіть оплату у відкритій вкладці."
+                        : "<br><br>Наш менеджер зв'яжеться із вами найближчим часом";
+                    this.showSuccessModal(
+                        "Успіх! Замовлення прийнято",
+                        `<p class="text-center">Супер, Ваше замовлення №${result.orderNumber} прийнято${paymentNote}</p>`
+                    );
+                }
             } catch (err) {
+                if (liqpayWindow && !liqpayWindow.closed) {
+                    liqpayWindow.close();
+                }
                 this.hideModalLoader();
-                console.log(err);
-                if (emptyForm) {
-                    this.alert("err", "Будь ласка заповніть поля форми", animDuration);
-                } else {
-                    this.alert("err", err.message, animDuration);
+                this.alert("err", err.message || "Не вдалося перевірити наявність товарів. Спробуйте ще раз.", animDuration);
+            } finally {
+                this.checkoutInFlight = false;
+                this.dataSubmitBtn.disabled = this.dataSubmitBtn.dataset.stockBlocked === "1";
+                this.dataSubmitBtn.textContent = buttonLabel;
+                if (succeeded) {
+                    this.hideModalLoader();
                 }
             }
         });
@@ -404,9 +485,95 @@ class Form {
         
     }
 
+    ensureCheckoutRequestId() {
+        const key = this.productManager.getProducts()
+            .map((product) => `${product.id}:${(Number(product.quantity) || 0) + (Number(product.preorder) || 0)}`)
+            .sort()
+            .join("|");
+        if (this.checkoutCartKey !== key || !this.checkoutRequestId) {
+            this.checkoutCartKey = key;
+            this.checkoutRequestId = createCheckoutRequestId();
+        }
+        return this.checkoutRequestId;
+    }
+
+    async postCheckout(payload) {
+        let response;
+        try {
+            response = await fetch(`${PROTOCOL}://${HOST}:${PORT}/cart/checkout/`, {
+                method: "POST",
+                mode: "cors",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": this.getCookie("csrftoken"),
+                },
+                body: JSON.stringify(payload),
+            });
+        } catch (error) {
+            throw new Error("Не вдалося перевірити наявність товарів. Спробуйте ще раз.");
+        }
+        let data = null;
+        try {
+            data = await response.json();
+        } catch (error) {
+            throw new Error("Не вдалося оформити замовлення");
+        }
+        if (response.status === 409 && data.status === "stock_changed") {
+            return data;
+        }
+        if (!response.ok) {
+            throw new Error(data.message || "Не вдалося оформити замовлення");
+        }
+        return data;
+    }
+
+    askStockConfirmation(cart) {
+        const lines = (cart.items || []).map((item) => {
+            const name = escapeCheckoutHtml(item.name || `Товар ${item.id}`);
+            if (item.unavailable) {
+                const reason = item.reason === "disabled" ? "товар недоступний" : "товар не знайдено";
+                return `<li>${name}: ${reason}</li>`;
+            }
+            const notes = [];
+            if (item.price_changed) {
+                notes.push(`нова ціна ${item.unit_price} грн`);
+            }
+            if (item.stock_changed) {
+                notes.push(`зі складу ${item.quantity}, під замовлення ${item.preorder}, доступно ${item.available}`);
+            }
+            return notes.length ? `<li>${name}: ${notes.join("; ")}</li>` : "";
+        }).join("");
+        this.showConfirmationModal(
+            "Зміна наявності або ціни",
+            `<p>Перевірте кошик перед оформленням.</p><ul>${lines}</ul><p>Сума зі складу: ${cart.total} грн</p><p>Сума попереднього замовлення: ${cart.preorder_total} грн</p>`
+        );
+        const button = document.getElementById("confirmChoices");
+        const modalElement = document.getElementById("confirmationModal");
+        return new Promise((resolve) => {
+            const onHide = () => {
+                button.removeEventListener("click", onConfirm);
+                resolve(false);
+            };
+            const onConfirm = (event) => {
+                event.preventDefault();
+                modalElement.removeEventListener("hidden.bs.modal", onHide);
+                button.removeEventListener("click", onConfirm);
+                resolve(true);
+                const ModalApi = typeof bootstrap !== "undefined" ? bootstrap : this.bootstrap;
+                ModalApi.Modal.getOrCreateInstance(modalElement).hide();
+            };
+            modalElement.addEventListener("hidden.bs.modal", onHide, { once: true });
+            button.addEventListener("click", onConfirm);
+        });
+    }
+
     hideHoleModals(){
+        const ModalApi = (typeof bootstrap !== "undefined" && bootstrap.Modal) ? bootstrap : this.bootstrap;
         document.querySelectorAll('.modal.show').forEach(modal => {
-            this.bootstrap.Modal.getInstance(modal).hide();
+            const instance = ModalApi && ModalApi.Modal ? ModalApi.Modal.getInstance(modal) : null;
+            if (instance) {
+                instance.hide();
+            }
         });
         const backdrops = document.querySelectorAll('.modal-backdrop');
         backdrops.forEach((backdrop) => {

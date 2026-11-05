@@ -13,7 +13,14 @@
                     <tr>
                         <td style="text-align: center;">
                             <h2 style="font-size: 24px; color: #333;">Номер Вашого замовлення {{ order_number }}</h2>
+                            {% if awaiting_payment %}
+                            <p style="font-size: 16px; color: #333;">Замовлення створено і очікує оплату. Якщо оплата не надійде вчасно, резерв буде знято.</p>
+                            {% else %}
                             <p style="font-size: 16px; color: #333;">Ваше замовлення прийняте в обробку, ми зв'яжемося з Вами в робочі години.</p>
+                            {% endif %}
+                            {% if payment_status %}
+                            <p style="font-size: 16px; color: #333;">Статус оплати: {{ payment_status }}</p>
+                            {% endif %}
                             <p style="font-size: 16px; color: #333;">Якщо Ви відправили замовлення у вихідні, або в не робочі години, не турбуйтесь,</p>
                             <p style="font-size: 16px; color: #333;">Менеджер обов'язково зв'яжеться з Вами найближчого робочого дня</p>
                         </td>
@@ -45,7 +52,7 @@
                                     </tbody>
                                 </table>
                                 <div style="text-align: right; padding-top: 10px;">
-                                    <strong style="font-size: 16px; color: #333;">Разом: {{ total_price }} грн.</strong>
+                                    <strong style="font-size: 16px; color: #333;">Разом зі складу: {{ stock_total|default:total_price }} грн.</strong>
                                 </div>
                             </td>
                         </tr>
@@ -77,13 +84,14 @@
                                     </tbody>
                                 </table>
                                 <div style="text-align: right; padding-top: 10px;">
-                                    <strong style="font-size: 16px; color: #333;">Разом: {{ preorder_total_price }} грн.</strong>
+                                    <strong style="font-size: 16px; color: #333;">Разом передзамовлення: {{ preorder_total_price }} грн.</strong>
                                 </div>
                             </td>
                         </tr>
                     {% endif %}
                     <tr>
                         <td style="padding-top: 20px; text-align: center; font-size: 14px; color: #555;">
+                            <p>Разом за замовленням: {{ total_price }} грн.</p>
                             З повагою,<br> Артмагия
                         </td>
                     </tr>

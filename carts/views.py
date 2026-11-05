@@ -7,6 +7,8 @@ from liqpay.liqpay3 import LiqPay
 from django.conf import settings
 from .models import Order, PreOrder
 import time
+from .checkout import CheckoutError, perform_checkout
+from .stock import StockError, public_quote
 from .utils import parse_request_data, get_delivery_info, validate_required_fields, create_order, prepare_email_context, send_email
 from datetime import datetime
 logger = logging.getLogger(__name__)
@@ -21,14 +23,7 @@ class ProcessOrderView(View):
     email_owner = EMAIL_HOST_USER
 
     def post(self, request):
-        data = parse_request_data(request)  # Парсинг входящих данных
-        selected_payment = self.payment_options.get(data.get('selectedPayment', ""), "")
-        order_id = data.get('orderNumber', '')
-
-        if selected_payment == 'Онлайн-оплата банківською карткою':
-            return self.handle_liqpay_payment(request, data, order_id)
-        else:
-            return self.handle_manual_payment(request, data)
+        return checkout_response(request)
 
     def handle_liqpay_payment(self, request, data, order_id):
         return JsonResponse({'status': 'success', 'orderNumber': 111}, status=200)
@@ -61,6 +56,38 @@ class ProcessOrderView(View):
         except Exception as e:
             logger.error('Unexpected error: %s', e)
             return JsonResponse({'status': 'error', 'message': 'Ошибка при обработке заказа'}, status=500)
+
+
+class RefreshCartView(View):
+    def post(self, request):
+        try:
+            data = parse_request_data(request)
+            items = data.get("items") or data.get("products") or []
+            return JsonResponse(public_quote(items))
+        except StockError as exc:
+            return JsonResponse({"status": "error", "message": exc.message}, status=400)
+        except json.JSONDecodeError:
+            return JsonResponse({"status": "error", "message": "Некоректний JSON"}, status=400)
+
+
+class CheckoutView(View):
+    def post(self, request):
+        return checkout_response(request)
+
+
+def checkout_response(request):
+    try:
+        data = parse_request_data(request)
+        result = perform_checkout(data, request)
+        http_status = 409 if result.get("status") == "stock_changed" else 200
+        return JsonResponse(result, status=http_status)
+    except CheckoutError as exc:
+        return JsonResponse(exc.payload, status=exc.http_status)
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Некоректний JSON"}, status=400)
+    except Exception:
+        logger.exception("checkout_failed")
+        return JsonResponse({"status": "error", "message": "Не вдалося оформити замовлення"}, status=500)
 
     # def parse_request_data(self, request):
     #     body_unicode = request.body.decode('utf-8')

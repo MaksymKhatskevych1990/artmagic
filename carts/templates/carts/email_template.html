@@ -40,6 +40,12 @@
                                         <td style="padding: 8px; text-align: left;">Спосіб оплати</td>
                                         <td style="padding: 8px;">{{ payment }}</td>
                                     </tr>
+                                    {% if payment_status %}
+                                    <tr>
+                                        <td style="padding: 8px; text-align: left;">Статус оплати</td>
+                                        <td style="padding: 8px;">{{ payment_status }}</td>
+                                    </tr>
+                                    {% endif %}
                                     <tr>
                                         <td style="padding: 8px; text-align: left;">Адреса</td>
                                         <td style="padding: 8px;">{{ address }}</td>
@@ -75,7 +81,7 @@
                                     </tbody>
                                 </table>
                                 <div style="text-align: right; padding-top: 10px;">
-                                    <strong style="font-size: 16px; color: #333;">Разом: {{ total_price }} грн.</strong>
+                                    <strong style="font-size: 16px; color: #333;">Разом зі складу: {{ stock_total|default:total_price }} грн.</strong>
                                 </div>
                             </td>
                         </tr>
@@ -107,7 +113,7 @@
                                     </tbody>
                                 </table>
                                 <div style="text-align: right; padding-top: 10px;">
-                                    <strong style="font-size: 16px; color: #333;">Разом: {{ preorder_total_price }} грн.</strong>
+                                    <strong style="font-size: 16px; color: #333;">Разом передзамовлення: {{ preorder_total_price }} грн.</strong>
                                 </div>
                             </td>
                         </tr>

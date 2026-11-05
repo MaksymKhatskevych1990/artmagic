@@ -1,6 +1,11 @@
 export class ProductManager {
     constructor() {
         this.products = [];
+        this.stockReady = false;
+        this.lastFingerprint = null;
+        this.lastQuote = null;
+        this.stockConfirmationRequired = false;
+        this.unconfirmedQuote = null;
         this.loadProductsFromStorage();
     }
 
@@ -122,5 +127,98 @@ export class ProductManager {
     isOrderedStoreProduct(){
         return this.products.some(product => product.quantity > 0);
     }
+
+    async refreshStock() {
+        const products = this.getProducts();
+        if (!products.length) {
+            this.stockReady = true;
+            this.lastFingerprint = null;
+            this.lastQuote = { status: "success", changed: false, items: [], total: "0.00", preorder_total: "0.00", fingerprint: "" };
+            return this.lastQuote;
+        }
+        let response;
+        try {
+            response = await fetch(`${PROTOCOL}://${HOST}:${PORT}/cart/refresh/`, {
+                method: "POST",
+                mode: "cors",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": readCookie("csrftoken"),
+                },
+                body: JSON.stringify({
+                    items: products.map((product) => ({
+                        id: product.id,
+                        quantity: Number(product.quantity) || 0,
+                        preorder: Number(product.preorder) || 0,
+                        price: product.price,
+                    })),
+                }),
+            });
+        } catch (error) {
+            this.stockReady = false;
+            throw new Error("Не вдалося перевірити наявність товарів. Спробуйте ще раз.");
+        }
+        let data = null;
+        try {
+            data = await response.json();
+        } catch (error) {
+            this.stockReady = false;
+            throw new Error("Не вдалося перевірити наявність товарів. Спробуйте ще раз.");
+        }
+        if (!response.ok || data.status === "error") {
+            this.stockReady = false;
+            throw new Error(data && data.message ? data.message : "Не вдалося перевірити наявність товарів. Спробуйте ще раз.");
+        }
+        this.applyRefresh(data);
+        this.stockReady = true;
+        this.lastFingerprint = data.fingerprint;
+        this.lastQuote = data;
+        if (data.changed) {
+            this.stockConfirmationRequired = true;
+            this.unconfirmedQuote = data;
+        }
+        return data;
+    }
+
+    confirmStockQuote() {
+        this.stockConfirmationRequired = false;
+        this.unconfirmedQuote = null;
+    }
+
+    applyRefresh(data) {
+        const items = new Map((data.items || []).map((item) => [Number(item.id), item]));
+        const next = [];
+        this.products.forEach((product) => {
+            const item = items.get(Number(product.id));
+            if (!item || item.unavailable) {
+                return;
+            }
+            product.name = item.name || product.name;
+            product.model = item.model || product.model;
+            product.price = Number(item.unit_price);
+            product.storageQuantity = Number(item.available) || 0;
+            product.quantity = Number(item.quantity) || 0;
+            product.preorder = Number(item.preorder) || 0;
+            product.isQuantityDisabled = product.quantity > product.storageQuantity;
+            next.push(product);
+        });
+        this.products = next;
+        this.setStorageProducts(this.products);
+    }
     
+}
+
+function readCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== "") {
+        const cookies = document.cookie.split(";");
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.startsWith(name + "=")) {
+                cookieValue = decodeURIComponent(cookie.slice(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
 }

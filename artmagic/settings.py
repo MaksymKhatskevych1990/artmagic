@@ -140,6 +140,12 @@ NOVA_POSHTA_API_KEY = os.getenv('NOVA_POSHTA_API_KEY')
 LIQPAY_PUBLIC_KEY = os.getenv('LIQPAY_PUBLIC_KEY')
 LIQPAY_PRIVATE_KEY = os.getenv('LIQPAY_PRIVATE_KEY')
 
+# Нове оформлення замовлення вмикається окремо після застосування міграцій.
+# ORDER_CHECKOUT_V2=0 залишає серверний перерахунок, але не створює резерви.
+ORDER_CHECKOUT_V2 = os.getenv('ORDER_CHECKOUT_V2', '0') not in ('0', 'false', 'False')
+STOCK_RESERVATION_MINUTES = int(os.getenv('STOCK_RESERVATION_MINUTES', '30'))
+SYNC_STALE_HOURS = int(os.getenv('SYNC_STALE_HOURS', '26'))
+
 # # Настройки для Celery
 # CELERY_BROKER_URL = 'redis://localhost:6379/0'
 # CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'

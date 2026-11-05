@@ -48,11 +48,9 @@ def get_user_carts(request):
 def parse_request_data(request):
     body_unicode = request.body.decode('utf-8')
     data = json.loads(body_unicode)
-    logger.debug('Received data: %s', data)
     return data
 
 def get_delivery_info(data):
-    print('---address------------------', data)
     delivery_options = {
         'artmagic_department': "Самовивіз",
         'new_post_department': "Відділення Нової пошти",
@@ -93,10 +91,6 @@ def create_order(data, user, address):
         'payment_real': "Оплата у точці видачі"
     }
     # Создаем основной заказ
-    print('-------------------------------------------------------')
-    print(data)
-    print('----', payment_options.get(data.get('selectedPayment', ""), ""),)
-
     selected_payment = payment_options.get(data.get('selectedPayment', ""), "")
     order = Order.objects.create(
         user=user,
@@ -113,11 +107,11 @@ def create_order(data, user, address):
 
     # Collect all pre-order items
     for item in prod_pre:
-        if 'preorder' in item:
+        if int(item.get('preorder') or 0) > 0:
             preorder_items.append({
                 'model': item['model'],
                 'name': item['name'],
-                'price': item['price'],
+                'price': item.get('price', item.get('unit_price')),
                 'quantity': item['preorder']
             })
 
@@ -126,6 +120,7 @@ def create_order(data, user, address):
         try:
             PreOrder.objects.create(
                 user=user,
+                order=order,
                 name=data.get('name'),
                 products=preorder_items,
                 quantity=sum(item['quantity'] for item in preorder_items)

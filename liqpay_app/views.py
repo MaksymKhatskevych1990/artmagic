@@ -13,77 +13,33 @@ import time
 import json
 
 
+from carts.checkout import CheckoutError, handle_liqpay_callback, perform_checkout
 from carts.utils import parse_request_data, get_delivery_info, validate_required_fields, create_order, prepare_email_context, send_email, prepare_email_context_liqpay
 from artmagic.settings import EMAIL_HOST_USER
 logger = logging.getLogger(__name__)
 
 
 def create_payment(request):
-    print(request)
-    if request.method == 'POST':
-        
-        body_data = parse_request_data(request)
-        data = {
-            'name': body_data.get('fullName', '')['value'],
-            'phone': body_data.get('clientPhone', '')['value'],
-            'email': body_data.get('email', '')['value'],
-            'products': body_data.get('products', ''),
-            'city': body_data.get('city', '')['value'],
-            'address': body_data.get('address', '')['value'],
-            'area': body_data.get('area', '')['value'],
-            'department': body_data.get('department', '')['value'],
-            'amount': body_data.get('amount', ''),
-            'selectedDelivery': body_data.get('selectedDelivery', ''),
-            'selectedPayment': body_data.get('selectedPayment', '')
-        }
-        delivery_method, address = get_delivery_info(data)
-        validate_required_fields(data)
-        user = request.user if request.user.is_authenticated else None
-        
-        order = create_order(data, user, address)
-        order_number = order.order_number
-
-        try:
-            
-            amount = body_data.get('amount', '')
-            description = body_data.get('description', '')
-
-            # Генерируем форму LiqPay
-            liqpay = LiqPay(settings.LIQPAY_PUBLIC_KEY, settings.LIQPAY_PRIVATE_KEY)
-            params = {
-                'public_key': settings.LIQPAY_PUBLIC_KEY,
-                'action': 'pay',
-                'amount': amount,
-                'currency': 'UAH',
-                'description': description,
-                'order_id': f'{order_number}-{body_data.get("selectedDelivery")}',
-                'version': '3',
-                'server_url': 'https://artmagic.com.ua/payment/liqpay-callback/',
-                'result_url': request.build_absolute_uri('/'),
-            }
-            print(f'------------>{params}<-------------')
-            # Генерируем HTML форму
-            form_html = liqpay.cnb_form(params)
-            form_html = form_html.replace('<form', '<form target="_blank"')
-
-            # Возвращаем форму в JSON ответе
-            response_data = {
-                'status': 'success',
-                'formHtml': form_html,
-                'orderNumber': order_number
-            }
-            return JsonResponse(response_data, status=200)
-
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
-    return HttpResponse("GET method not supported for payment creation", status=405)
+    if request.method != 'POST':
+        return HttpResponse("GET method not supported for payment creation", status=405)
+    try:
+        data = parse_request_data(request)
+        result = perform_checkout(data, request)
+        http_status = 409 if result.get("status") == "stock_changed" else 200
+        return JsonResponse(result, status=http_status)
+    except CheckoutError as exc:
+        return JsonResponse(exc.payload, status=exc.http_status)
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Некоректний JSON"}, status=400)
+    except Exception:
+        logger.exception("create_payment_failed")
+        return JsonResponse({"status": "error", "message": "Не вдалося створити оплату"}, status=500)
 # def create_payment(request):
 
-from carts.views import ProcessOrderView
 from django.views.decorators.csrf import csrf_exempt
 import base64
 import hashlib
+import hmac
 import json
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -104,24 +60,23 @@ def payment_status(request):
         hashlib.sha1(f"{settings.LIQPAY_PRIVATE_KEY}{data}{settings.LIQPAY_PRIVATE_KEY}".encode()).digest()
     ).decode()
     
-    if signature != expected_signature:
-        logger.error("Invalid signature")
+    if not hmac.compare_digest(signature, expected_signature):
+        logger.warning("liqpay_callback signature=invalid")
         return HttpResponse("Invalid signature", status=403)
 
-    # 4. Декодируем данные
-    decoded_data = json.loads(base64.b64decode(data).decode('utf-8'))
-    order_id = decoded_data.get('order_id', None).split('-')[0]
+    try:
+        decoded_data = json.loads(base64.b64decode(data).decode("utf-8"))
+    except Exception:
+        logger.warning("liqpay_callback bad_payload")
+        return HttpResponse("Bad payload", status=400)
 
-    status = decoded_data.get('status', None)
-
-
-    if status == 'success':
-        print(f'{status}, <----------Status-----------')
-        fields, email = prepare_email_context_liqpay(decoded_data, order_id)
-        print(f'Fields : {fields}')
-
-        # # Отправка писем
-        send_email(email_owner, fields, f"Замовлення №: {order_id}", 'carts/email_template.html')
-        send_email(email, fields, 'Ваше замовлення прийняте', 'users/email_template_user.html')
-        print('Email SEND')
-        return HttpResponse("OK", status=200)
+    try:
+        result = handle_liqpay_callback(decoded_data)
+    except Exception:
+        logger.exception("liqpay_callback_failed")
+        return HttpResponse("Error", status=500)
+    if result == "missing":
+        return HttpResponse("Payment not found", status=404)
+    if result == "mismatch":
+        return HttpResponse("Payment data mismatch", status=400)
+    return HttpResponse("OK", status=200)
