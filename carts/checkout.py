@@ -229,13 +229,11 @@ def create_checked_order(data, request, request_id, raw_items, delivery_method, 
 
     if is_liqpay:
         build_liqpay_payment(order, data.get("selectedDelivery"))
-
-    notice_kind = (
-        OrderNotificationDelivery.KIND_AWAITING_PAYMENT
-        if is_liqpay
-        else OrderNotificationDelivery.KIND_CONFIRMATION
-    )
-    queue_order_notifications(order, notice_kind)
+    else:
+        queue_order_notifications(
+            order,
+            OrderNotificationDelivery.KIND_CONFIRMATION,
+        )
     logger.info(
         "checkout_created client_request_id=%s order=%s payment=%s total=%s",
         request_id,
@@ -279,10 +277,6 @@ def legacy_checkout(data, request):
         order.status = Order.STATUS_PENDING_PAYMENT
         order.save(update_fields=["status", "updated_at"])
         build_liqpay_payment(order, data.get("selectedDelivery"))
-        queue_order_notifications(
-            order,
-            OrderNotificationDelivery.KIND_AWAITING_PAYMENT,
-        )
         return order_payload(order, request)
     order.status = Order.STATUS_NEW
     order.save(update_fields=["status", "updated_at"])

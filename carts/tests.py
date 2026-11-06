@@ -565,7 +565,8 @@ class LiqPayTests(TestCase):
         self.assertEqual(order.status, Order.STATUS_PENDING_PAYMENT)
         self.assertEqual(order.total_price, Decimal("50.00"))
         self.assertEqual(StockReservation.objects.get().status, StockReservation.STATUS_PENDING_PAYMENT)
-        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(order.notification_deliveries.exists())
 
         again = post_json(self.client, "/cart/checkout/", {
             "name": "Покупець",
@@ -580,7 +581,7 @@ class LiqPayTests(TestCase):
         self.assertEqual(again.json()["orderNumber"], first["orderNumber"])
         self.assertIn("formHtml", again.json())
         self.assertEqual(Order.objects.count(), 1)
-        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(len(mail.outbox), 0)
 
         failed = self.callback(order, "failure")
         self.assertEqual(failed.status_code, 200)
@@ -596,10 +597,17 @@ class LiqPayTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, Order.STATUS_PAID)
         self.assertEqual(StockReservation.objects.get().status, StockReservation.STATUS_ACTIVE)
-        self.assertEqual(len(mail.outbox), 4)
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(
+            order.notification_deliveries.filter(kind="confirmation").count(),
+            2,
+        )
+        self.assertFalse(
+            order.notification_deliveries.filter(kind="awaiting_payment").exists()
+        )
         repeat = self.callback(order, "success")
         self.assertEqual(repeat.status_code, 200)
-        self.assertEqual(len(mail.outbox), 4)
+        self.assertEqual(len(mail.outbox), 2)
 
         late_product = Products.objects.create(
             name="Прострочена оплата",
@@ -651,7 +659,7 @@ class LiqPayTests(TestCase):
         self.assertEqual(response.status_code, 403)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.STATUS_PENDING_PAYMENT)
-        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_callback_validates_amount_and_currency(self):
         self.start_payment()
