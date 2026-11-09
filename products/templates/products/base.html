@@ -23,8 +23,14 @@
     {% block head %}{% endblock %}
     
     <meta property="og:type" content="website" />
-    <meta property="og:locale" content="uk_UA" />    
-    <meta name="robots" content="index, follow" />
+    <meta property="og:locale" content="uk_UA" />
+    {% if request.path == '/product/search/' or request.resolver_match.url_name == 'profile' or request.resolver_match.url_name == 'change_password' or request.resolver_match.url_name == 'password_reset' or request.resolver_match.url_name == 'password_reset_done' or request.resolver_match.url_name == 'password_reset_confirm' or request.resolver_match.url_name == 'password_reset_complete' or request.resolver_match.url_name == 'login' or request.resolver_match.url_name == 'register' %}
+        <meta name="robots" content="noindex, nofollow" />
+    {% elif request.resolver_match.url_name == 'safeguards_detail' or request.resolver_match.url_name == 'return_agoods_detail' or request.resolver_match.url_name == 'detaile_product' and not product.status %}
+        <meta name="robots" content="noindex, follow" />
+    {% else %}
+        <meta name="robots" content="index, follow" />
+    {% endif %}
 
 
     <meta name="google-site-verification" content="nQUF4QJE3UgY9V282sBI0h-ANKERSWQirAMXVUWyQDI" />

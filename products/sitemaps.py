@@ -9,7 +9,12 @@ class StaticViewSitemap(Sitemap):
     protocol = "https"
 
     def items(self):
-        return ['parent_categories', 'main:about_detail', 'main:contacts_detail'] 
+        return [
+            'parent_categories',
+            'main:about_detail',
+            'main:contacts_detail',
+            'main:payment_delivery_detail',
+        ] 
 
     def location(self, item):
         return reverse(item)
@@ -34,7 +39,7 @@ class SubCategorySitemap(Sitemap):
     protocol = "https"
 
     def items(self):
-        return Category.objects.exclude(parent=None, is_active=True)
+        return Category.objects.filter(is_active=True).exclude(parent=None)
 
     def lastmod(self, obj):
         return obj.date_modified  
@@ -49,7 +54,7 @@ class ProductSitemap(Sitemap):
     protocol = "https"
 
     def items(self):
-        return Products.objects.all().order_by('id') 
+        return Products.objects.filter(status=True).order_by('id') 
 
     def lastmod(self, obj):
         return obj.date_modified 

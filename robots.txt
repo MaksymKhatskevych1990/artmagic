@@ -1,12 +1,9 @@
 User-agent: *
 Disallow: /product/search/
-Disallow: /user/profile/
-Disallow: /main/payment-delivery/
-Disallow: /main/contacts/
+Disallow: /user/
+Disallow: /cart/
+Disallow: /payment/
 Disallow: /main/safeguards/
 Disallow: /main/return-agoods/
 Disallow: /art-admin/
-Disallow: /user/password-reset/
-Disallow: /user/password-reset/done/
-Disallow: /user/reset/done/
 Sitemap: https://artmagic.com.ua/sitemap.xml

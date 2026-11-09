@@ -6,11 +6,11 @@
     <link rel="stylesheet" href="{% static 'django_ckeditor_5/dist/styles.css' %}">
 {% endblock %}
 {% block head %}
-    <title>{{product.name}} — купити в Україні | інтернет-магазині Артмагія</title>
-    <meta name="description" content="Купити {{product.name}} в Дніпрі. 🚛 Доставка по Україні ⭐️ Артмагія — художні матеріали ✔️ Асортимент для художників та дизайнерів  ✆ 0661494273">
+    <title>{{ product.name }} | Артмагія</title>
+    <meta name="description" content="{{ product.name }}.{% if product.model %} Артикул {{ product.model }}.{% endif %} {% if product.quantity > 0 %}В наявності{% else %}Під замовлення{% endif %}. Інтернет-магазин Артмагія, доставка по Україні.">
 
-    <meta property="og:title" content="{{product.name}} — купити в Дніпрі | інтернет-магазині Артмагія">
-    <meta property="og:description" content="Купити {{product.name}} в ⭐️ Артмагії ⭐️ — художні матеріали для студентів і митців ✔️ Доставка по Україні. ✔️ Широкий асортимент ✆ 0661494273">
+    <meta property="og:title" content="{{ product.name }} | Артмагія">
+    <meta property="og:description" content="{{ product.name }}.{% if product.model %} Артикул {{ product.model }}.{% endif %} {% if product.quantity > 0 %}В наявності{% else %}Під замовлення{% endif %}.">
     
     {% if product.image %}
         <meta property="og:image" content="https://artmagic.com.ua/media/{{product.image}}">

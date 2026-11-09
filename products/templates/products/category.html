@@ -6,11 +6,7 @@
         <link rel="stylesheet" href="{% static 'css/category.css' %}">
     {% endblock %}
         {% block head %}
-            <title>{{parent_category}} — купити в Дніпрі | інтернет-магазині Артмагія</title>
-            <meta name="description" content="Купити {{parent_category}} в ⭐️ Артмагії ⭐️ — художні матеріали для студентів і митців ✔️ Доставка по Україні. ✔️ Широкий асортимент ✆ 0661494273">
-
-            <meta property="og:title" content="{{parent_category}} — купити в Дніпрі | інтернет-магазині Артмагія">
-            <meta property="og:description" content="Купити {{parent_category}} в ⭐️ Артмагії ⭐️ — художні матеріали для студентів і митців ✔️ Доставка по Україні. ✔️ Широкий асортимент ✆ 0661494273">
+            {% include "products/includes/category_seo.html" %}
             
             {% if parent_category.image %}
                 <meta property="og:image" content="https://artmagic.com.ua/media/{{parent_category.image}}">

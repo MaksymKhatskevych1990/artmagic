@@ -1,0 +1,14 @@
+{% if parent_category.meta_title and parent_category.meta_title|length > 35 %}
+    <title>{{ parent_category.meta_title }}</title>
+    <meta property="og:title" content="{{ parent_category.meta_title }}">
+{% else %}
+    <title>{{ parent_category.name }} — купити в Дніпрі | Артмагія</title>
+    <meta property="og:title" content="{{ parent_category.name }} — купити в Дніпрі | Артмагія">
+{% endif %}
+{% if parent_category.meta_description %}
+    <meta name="description" content="{{ parent_category.meta_description }}">
+    <meta property="og:description" content="{{ parent_category.meta_description }}">
+{% else %}
+    <meta name="description" content="{{ parent_category.name }} в інтернет-магазині Артмагія: художні матеріали з доставкою по Україні та самовивозом у Дніпрі.">
+    <meta property="og:description" content="{{ parent_category.name }} в інтернет-магазині Артмагія: художні матеріали з доставкою по Україні та самовивозом у Дніпрі.">
+{% endif %}

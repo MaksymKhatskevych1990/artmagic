@@ -9,17 +9,12 @@
 {% endblock %}
         {% block head %}
             {% if request.path == '/product/search/' %}
-                <title>Артмагія — Результати пошуку: "{{searchquery}}" </title>
-                <meta name="description" content="Купити {{searchquery}} в ⭐️ Артмагії ⭐️ — художні матеріали для студентів і митців ✔️ Доставка по Україні. ✔️ Широкий асортимент ✆ 0661494273">
-                
-                <meta property="og:title" content="{{searchquery}} — купити в Дніпрі | інтернет-магазині Артмагія">
-                <meta property="og:description" content="Купити {{searchquery}} в ⭐️ Артмагії ⭐️ — художні матеріали для студентів і митців ✔️ Доставка по Україні. ✔️ Широкий асортимент ✆ 0661494273">
+                <title>Пошук{% if searchquery %}: {{ searchquery }}{% endif %} | Артмагія</title>
+                <meta name="description" content="Результати пошуку в інтернет-магазині Артмагія.">
+                <meta property="og:title" content="Пошук | Артмагія">
+                <meta property="og:description" content="Результати пошуку в інтернет-магазині Артмагія.">
             {% else %}
-                <title>{{parent_category}} — купити в Дніпрі | інтернет-магазині Артмагія</title>
-                <meta name="description" content="Купити {{parent_category}} в ⭐️ Артмагії ⭐️ — художні матеріали для студентів і митців ✔️ Доставка по Україні. ✔️ Широкий асортимент ✆ 0661494273">
-                
-                <meta property="og:title" content="{{parent_category}} — купити в Дніпрі | інтернет-магазині Артмагія">
-                <meta property="og:description" content="Купити {{parent_category}} в ⭐️ Артмагії ⭐️ — художні матеріали для студентів і митців ✔️ Доставка по Україні. ✔️ Широкий асортимент ✆ 0661494273">
+                {% include "products/includes/category_seo.html" %}
             {% endif %}    
             
             {% if parent_category.image %}
