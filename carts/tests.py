@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import re
 import threading
 import uuid
 from datetime import timedelta
@@ -745,6 +746,60 @@ class LiqPayTests(TestCase):
             Payment.objects.get(checkout_order=order).status,
             "expired",
         )
+
+    def form_amount(self, form_html):
+        match = re.search(r"name='data' value='([^']+)'", form_html)
+        self.assertIsNotNone(match)
+        payload = json.loads(base64.b64decode(match.group(1)))
+        return payload["amount"]
+
+    def test_liqpay_charges_stock_quantity_only(self):
+        self.product.quantity = 1
+        self.product.price = Decimal("100.00")
+        self.product.save(update_fields=["quantity", "price"])
+        quote = post_json(self.client, "/cart/refresh/", {
+            "items": [{
+                "id": self.product.id,
+                "quantity": 1,
+                "preorder": 19,
+                "price": "100.00",
+            }],
+        }).json()
+        with self.captureOnCommitCallbacks(execute=True):
+            response = post_json(self.client, "/cart/checkout/", {
+                "name": "Покупець",
+                "phone": "0500000000",
+                "email": "mixed@example.com",
+                "selectedDelivery": "artmagic_department",
+                "selectedPayment": "liqpay",
+                "products": [{
+                    "id": self.product.id,
+                    "quantity": 1,
+                    "preorder": 19,
+                    "price": "100.00",
+                }],
+                "client_request_id": str(uuid.uuid4()),
+                "confirmed_fingerprint": quote["fingerprint"],
+            })
+        self.assertEqual(response.status_code, 200, response.content)
+        order = Order.objects.get()
+        self.assertEqual(order.total_price, Decimal("2000.00"))
+        self.assertEqual(order.products[0]["quantity"], 1)
+        self.assertEqual(order.products[0]["preorder"], 19)
+        self.assertEqual(response.json()["amount"], "2000.00")
+        self.assertEqual(Payment.objects.get(checkout_order=order).amount, Decimal("100.00"))
+        self.assertEqual(self.form_amount(response.json()["formHtml"]), "100.00")
+
+        mismatch = self.callback(order, "success", amount="2000.00")
+        self.assertEqual(mismatch.status_code, 400)
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.STATUS_PENDING_PAYMENT)
+
+        paid = self.callback(order, "success", amount="100.00")
+        self.assertEqual(paid.status_code, 200)
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.STATUS_PAID)
+        self.assertEqual(order.total_price, Decimal("2000.00"))
 
     def test_late_payment_without_available_stock_is_flagged(self):
         self.product.quantity = 1

@@ -296,7 +296,8 @@ def order_payload(order, request):
         "amount": money_str(order.total_price),
     }
     if order.payment_code == "liqpay" and order.status == Order.STATUS_PENDING_PAYMENT:
-        payload["formHtml"] = render_liqpay_form(order, request)
+        if liqpay_charge_amount(order) > 0:
+            payload["formHtml"] = render_liqpay_form(order, request)
     elif order.payment_code == "liqpay" and order.status == Order.STATUS_PAID:
         payload["alreadyPaid"] = True
     return payload
@@ -308,12 +309,35 @@ def build_liqpay_payment(order, delivery_code):
         checkout_order=order,
         defaults={
             "user": order.user,
-            "amount": order.total_price,
+            "amount": liqpay_charge_amount(order),
             "order_id": liqpay_order_id,
             "liqpay_order_id": liqpay_order_id,
             "status": "pending",
         },
     )
+
+
+def _liqpay_lines(order):
+    lines = []
+    for item in order.products or []:
+        lines.append({
+            "id": item.get("id"),
+            "model": item.get("model"),
+            "name": item.get("name"),
+            "unit_price": item.get("unit_price") or item.get("price"),
+            "quantity": int(item.get("quantity") or 0),
+            "preorder": int(item.get("preorder") or 0),
+        })
+    return lines
+
+
+def liqpay_charge_amount(order):
+    """Online payment covers warehouse quantity only. Preorder stays unpaid."""
+    total = Decimal("0.00")
+    for item in _liqpay_lines(order):
+        unit = Decimal(str(item["unit_price"] or "0"))
+        total += unit * item["quantity"]
+    return total.quantize(Decimal("0.01"))
 
 
 def render_liqpay_form(order, request):
@@ -327,7 +351,7 @@ def render_liqpay_form(order, request):
     params = {
         "public_key": public_key,
         "action": "pay",
-        "amount": money_str(order.total_price),
+        "amount": money_str(liqpay_charge_amount(order)),
         "currency": "UAH",
         "description": f"ArtMagic замовлення {order.order_number}",
         "order_id": f"{order.order_number}-{order.delivery_code}",

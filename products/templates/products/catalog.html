@@ -206,7 +206,7 @@
                         {% if parent_category.description %}
                         "description": "{{ parent_category.description|default:''|truncatechars:200|escapejs }}",
                         {% endif %}
-                        "url": "https://artmagic.com.ua{{ breadcrumbs.2.url }}"
+                        "url": "https://artmagic.com.ua{{ breadcrumbs.2.url }}",
                         {% if parent_category.image %}
                         "image": "https://artmagic.com.ua/media/{{ parent_category.image }}"
                         {% else %}
